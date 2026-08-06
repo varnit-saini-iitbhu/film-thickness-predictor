@@ -143,7 +143,7 @@ export default function ThinFilmPredictor() {
           <div>
             <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-cyan-400 mb-2 font-mono cursor-default" style={FONT_MONO}>
               <Layers className="w-4 h-4 text-cyan-400" />
-              Materials Processing & Thin Films Lab
+              Emerging Electronic Materials & Device Lab
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-2 cursor-default">
               Thin Film Thickness Predictor
