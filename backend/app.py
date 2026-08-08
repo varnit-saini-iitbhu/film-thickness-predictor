@@ -27,7 +27,7 @@ app = FastAPI(
 # once you host this somewhere other than localhost.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"], 
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -100,7 +100,20 @@ def predict(payload: PredictRequest):
     )
 
     prediction = float(model.predict(row)[0])
-    return PredictResponse(thickness_nm=round(prediction, 2))# """
+    return PredictResponse(thickness_nm=round(prediction, 2))
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+
+    # """
 # FastAPI server that loads the trained thickness model and serves it at
 # POST /predict. Run with:
 
