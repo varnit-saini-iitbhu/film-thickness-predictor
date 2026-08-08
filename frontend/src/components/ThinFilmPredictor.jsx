@@ -182,7 +182,7 @@ export default function ThinFilmPredictor() {
             style={FONT_MONO}
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Live ML Model Connected
+            Computational Model Active
           </div>
         </div>
 
@@ -383,7 +383,7 @@ export default function ThinFilmPredictor() {
               <div className="flex items-start gap-2.5 pt-4 border-t border-slate-800 text-xs text-slate-400 leading-relaxed cursor-default transition-colors hover:text-slate-300">
                 <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                 <span>
-                  Prediction is generated in real-time by your custom regression model running on the FastAPI backend.
+                  Output represents simulated approximations based on trained parameters. True physical results are subject to real-world variance.
                 </span>
               </div>
             </div>
