@@ -17,8 +17,8 @@ import {
   RefreshCw,
   Scale,
   PieChart,
-  Tag, // Imported Tag icon for the Compound Name
-  ListNumbers
+  Tag,
+  Hash // Replaced ListNumbers with Hash to avoid Vercel build errors
 } from "lucide-react";
 
 const FONT_SANS = { fontFamily: "'IBM Plex Sans', sans-serif" };
@@ -51,7 +51,6 @@ const INITIAL_PROCESS_DATA = PROCESS_FIELDS.reduce((acc, f) => {
   return acc;
 }, {});
 
-// Added 'name' to the empty material object
 const EMPTY_MATERIAL = {
   name: "",
   fraction: "",
@@ -72,7 +71,6 @@ export default function ThinFilmPredictor() {
   const [unit, setUnit] = useState("nm");
   const [fractionError, setFractionError] = useState(false);
 
-  // Function to handle the "How many compounds?" input
   const handleNumCompoundsChange = (val) => {
     setNumCompounds(val);
     const num = parseInt(val, 10);
@@ -85,16 +83,13 @@ export default function ThinFilmPredictor() {
     const newMaterials = [...materials];
     
     if (num > materials.length) {
-      // Add missing empty forms
       for (let i = materials.length; i < num; i++) {
         newMaterials.push({ ...EMPTY_MATERIAL });
       }
     } else if (num < materials.length) {
-      // Remove excess forms
       newMaterials.length = num;
     }
     
-    // Auto-fill fraction if there is only 1 compound
     if (num === 1 && newMaterials.length > 0) {
       newMaterials[0].fraction = "100";
     }
@@ -132,7 +127,7 @@ export default function ThinFilmPredictor() {
       if (!isNaN(fraction)) totalFraction += fraction;
 
       return (
-        m.name.trim() !== "" && // Ensure name is filled out
+        m.name.trim() !== "" && 
         m.fraction !== "" && !isNaN(fraction) && fraction >= 0 &&
         m.molarity !== "" && !isNaN(mol) && mol >= 0 &&
         m.molecularWeight !== "" && !isNaN(mw) && mw >= 0 &&
@@ -256,7 +251,7 @@ export default function ThinFilmPredictor() {
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6 pb-6 border-b border-slate-800/80">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 flex items-center justify-center rounded-lg border bg-sky-500/10 text-sky-400 border-sky-500/20">
-                    <ListNumbers className="w-4 h-4" />
+                    <Hash className="w-4 h-4" />
                   </div>
                   <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-200 cursor-default" style={FONT_MONO}>
                     How many compounds will you mix?
