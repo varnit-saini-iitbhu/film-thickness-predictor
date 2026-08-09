@@ -15,6 +15,7 @@ import {
   Loader2,
   Sparkles,
   RefreshCw,
+  Scale, // Imported Scale icon for molecular weight/density
 } from "lucide-react";
 
 const FONT_SANS = { fontFamily: "'IBM Plex Sans', sans-serif" };
@@ -34,6 +35,7 @@ const SPECTRUM_GRADIENT_CSS = `linear-gradient(to right, ${Array.from({ length: 
   return `hsl(${hueForThickness(thickness)}, 80%, 60%) ${(t * 100).toFixed(1)}%`;
 }).join(", ")})`;
 
+// Updated FIELD_GROUPS to replace concentration with Molarity, MW, and Density
 const FIELD_GROUPS = [
   {
     title: "Solution Properties",
@@ -43,7 +45,9 @@ const FIELD_GROUPS = [
     focusBorder: "focus:border-sky-500 focus:ring-sky-500/20",
     hoverShadow: "hover:shadow-sky-500/10 hover:border-sky-500/30",
     fields: [
-      { key: "concentration", label: "Concentration", unit: "wt%", placeholder: "5.0", icon: FlaskConical, step: "0.1" },
+      { key: "molarity", label: "Molarity", unit: "M", placeholder: "0.5", icon: FlaskConical, step: "0.01" },
+      { key: "molecularWeight", label: "Molecular Weight", unit: "g/mol", placeholder: "100.0", icon: Scale, step: "0.1" },
+      { key: "density", label: "Density", unit: "g/mL", placeholder: "1.2", icon: Droplet, step: "0.01" },
       { key: "viscosity", label: "Viscosity", unit: "cP", placeholder: "10.0", icon: Droplet, step: "0.1" },
       { key: "surfaceTension", label: "Surface Tension", unit: "mN/m", placeholder: "30.0", icon: Waves, step: "0.1" },
     ],
@@ -88,8 +92,12 @@ export default function ThinFilmPredictor() {
   const [showErrors, setShowErrors] = useState(false);
   const [unit, setUnit] = useState("nm");
 
+  // Allow density to be > 0 (it cannot be 0 because we divide by it)
   const isValid = ALL_FIELDS.every((f) => {
     const v = parseFloat(formData[f.key]);
+    if (f.key === "density") {
+        return formData[f.key] !== "" && !isNaN(v) && v > 0;
+    }
     return formData[f.key] !== "" && !isNaN(v) && v >= 0;
   });
 
@@ -107,12 +115,19 @@ export default function ThinFilmPredictor() {
     setPrediction(null);
 
     try {
+      // Calculate concentration (wt%) from Molarity, MW, and Density
+      const molarity = parseFloat(formData.molarity);
+      const mw = parseFloat(formData.molecularWeight);
+      const density = parseFloat(formData.density);
+      
+      const calculated_wt_pct = (molarity * mw) / (10 * density);
+
       const numericData = {
         spin_speed_rpm: parseFloat(formData.spinSpeed),
         spin_time_s: parseFloat(formData.spinTime),
         viscosity_cp: parseFloat(formData.viscosity),
         surface_tension_mn_m: parseFloat(formData.surfaceTension),
-        concentration_wt_pct: parseFloat(formData.concentration),
+        concentration_wt_pct: calculated_wt_pct, // Sending calculated value to backend
         volume_deposited_ul: parseFloat(formData.volumeDeposited) * 1000, 
         annealing_temp_c: parseFloat(formData.annealingTemp),
         annealing_time_min: parseFloat(formData.annealingTime),
@@ -205,7 +220,15 @@ export default function ThinFilmPredictor() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   {group.fields.map((field) => {
                     const val = formData[field.key];
-                    const invalid = showErrors && (val === "" || isNaN(parseFloat(val)) || parseFloat(val) < 0);
+                    let invalid = false;
+                    if (showErrors) {
+                        if (field.key === "density") {
+                            invalid = val === "" || isNaN(parseFloat(val)) || parseFloat(val) <= 0;
+                        } else {
+                            invalid = val === "" || isNaN(parseFloat(val)) || parseFloat(val) < 0;
+                        }
+                    }
+                    
                     return (
                       <div key={field.key} className="space-y-1.5 group/input">
                         <label className="flex items-center gap-1.5 text-xs font-medium text-slate-400 group-hover/input:text-slate-300 transition-colors">
@@ -244,7 +267,7 @@ export default function ThinFilmPredictor() {
             {showErrors && !isValid && (
               <div className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl p-3.5 animate-in fade-in slide-in-from-top-2 duration-300">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                Please complete all parameters with valid positive numeric values.
+                Please complete all parameters with valid numeric values. Density must be greater than 0.
               </div>
             )}
 
@@ -350,7 +373,7 @@ export default function ThinFilmPredictor() {
                   <div className="space-y-2 group/spectrum cursor-default">
                     <div className="flex justify-between text-xs text-slate-400 font-mono transition-colors group-hover/spectrum:text-slate-300" style={FONT_MONO}>
                       <span>Interference Spectrum</span>
-                      <span className="text-slate-300">{prediction} nm</span>
+                      <span className="text-slate-300">{prediction.toFixed(1)} nm</span>
                     </div>
 
                     <div
@@ -393,6 +416,7 @@ export default function ThinFilmPredictor() {
     </div>
   );
 }
+
 // import { useState } from "react";
 // import {
 //   Layers,
@@ -491,6 +515,7 @@ export default function ThinFilmPredictor() {
 //   const handleChange = (key, value) => {
 //     setFormData((prev) => ({ ...prev, [key]: value }));
 //   };
+
 //   const handlePredict = async () => {
 //     if (!isValid) {
 //       setShowErrors(true);
@@ -501,19 +526,17 @@ export default function ThinFilmPredictor() {
 //     setPrediction(null);
 
 //     try {
-//       // Mapping frontend variables to the exact Pydantic schema in app.py
 //       const numericData = {
 //         spin_speed_rpm: parseFloat(formData.spinSpeed),
 //         spin_time_s: parseFloat(formData.spinTime),
 //         viscosity_cp: parseFloat(formData.viscosity),
 //         surface_tension_mn_m: parseFloat(formData.surfaceTension),
 //         concentration_wt_pct: parseFloat(formData.concentration),
-//         volume_deposited_ul: parseFloat(formData.volumeDeposited) * 1000, // Converts mL to uL
+//         volume_deposited_ul: parseFloat(formData.volumeDeposited) * 1000, 
 //         annealing_temp_c: parseFloat(formData.annealingTemp),
 //         annealing_time_min: parseFloat(formData.annealingTime),
 //       };
 
-//       // Ensure we hit 127.0.0.1 directly to avoid localhost IPv6 mismatch
 //       const response = await fetch("https://film-thickness-predictor.onrender.com/predict", {
 //         method: "POST",
 //         headers: {
@@ -527,17 +550,16 @@ export default function ThinFilmPredictor() {
 //       }
 
 //       const data = await response.json();
-      
-//       // Update this based on the exact JSON key returned by PredictResponse
 //       setPrediction(data.thickness_nm);
       
 //     } catch (error) {
 //       console.error("Error fetching prediction:", error);
-//       alert("Error communicating with ML backend. Ensure FastAPI is running on 127.0.0.1:8000.");
+//       alert(`Error communicating with ML backend: ${error.message}. If using a free Render server, it may take 50 seconds to wake up. Please try clicking Predict again.`);
 //     } finally {
 //       setIsLoading(false);
 //     }
 //   };
+
 //   const handleReset = () => {
 //     setFormData(INITIAL_FORM_DATA);
 //     setPrediction(null);
@@ -554,14 +576,12 @@ export default function ThinFilmPredictor() {
 
 //   return (
 //     <div className="min-h-screen bg-[#0b0f19] text-slate-100 p-4 sm:p-8 relative overflow-hidden" style={FONT_SANS}>
-//       {/* Background Ambient Glows */}
 //       <div className="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 //       <div className="absolute top-1/2 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
 //       <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');`}</style>
 
 //       <div className="max-w-6xl mx-auto relative z-10">
-//         {/* Header Section */}
 //         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-slate-800">
 //           <div>
 //             <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-cyan-400 mb-2 font-mono cursor-default" style={FONT_MONO}>
@@ -581,13 +601,11 @@ export default function ThinFilmPredictor() {
 //             style={FONT_MONO}
 //           >
 //             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-//             Live ML Model Connected
+//             Computational Model Active
 //           </div>
 //         </div>
 
-//         {/* Main Grid Layout */}
 //         <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-//           {/* Inputs Column */}
 //           <div className="lg:col-span-3 space-y-6">
 //             {FIELD_GROUPS.map((group) => (
 //               <div
@@ -649,7 +667,6 @@ export default function ThinFilmPredictor() {
 //               </div>
 //             )}
 
-//             {/* Action Buttons */}
 //             <div className="flex flex-col sm:flex-row gap-3 pt-2">
 //               <button
 //                 type="button"
@@ -681,7 +698,6 @@ export default function ThinFilmPredictor() {
 //             </div>
 //           </div>
 
-//           {/* Output / Results Column */}
 //           <div className="lg:col-span-2">
 //             <div className="lg:sticky lg:top-6 rounded-2xl bg-slate-900/80 border border-slate-800 backdrop-blur-md p-6 shadow-2xl transition-all duration-300 hover:shadow-cyan-500/5 hover:border-slate-700/80 space-y-6">
 //               <div className="flex items-center justify-between">
@@ -786,7 +802,7 @@ export default function ThinFilmPredictor() {
 //               <div className="flex items-start gap-2.5 pt-4 border-t border-slate-800 text-xs text-slate-400 leading-relaxed cursor-default transition-colors hover:text-slate-300">
 //                 <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
 //                 <span>
-//                   Prediction is generated in real-time by your custom regression model running on the FastAPI backend.
+//                   Output represents simulated approximations based on trained parameters. True physical results are subject to real-world variance.
 //                 </span>
 //               </div>
 //             </div>
