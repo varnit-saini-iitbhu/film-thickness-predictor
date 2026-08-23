@@ -27,7 +27,7 @@ app = FastAPI(
 # once you host this somewhere other than localhost.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -41,7 +41,7 @@ def get_bundle():
         if not MODEL_PATH.exists():
             raise HTTPException(
                 status_code=503,
-                detail="Model not found. Run `python train.py` first to create model/thickness_model.joblib.",
+                detail=f"Model not found at {MODEL_PATH}. Check MODEL_PATH matches your model filename.",
             )
         _bundle = joblib.load(MODEL_PATH)
     return _bundle
@@ -56,6 +56,7 @@ class PredictRequest(BaseModel):
     volume_deposited_ul: float = Field(..., gt=0, description="Volume deposited in microliters")
     annealing_temp_c: float = Field(..., ge=0, description="Annealing temperature in Celsius")
     annealing_time_min: float = Field(..., ge=0, description="Annealing time in minutes")
+    number_of_layers: int = Field(..., ge=1, description="Number of coating layers")  # NEW
 
 
 class PredictResponse(BaseModel):
@@ -81,39 +82,34 @@ def predict(payload: PredictRequest):
     bundle = get_bundle()
     model, features = bundle["model"], bundle["features"]
 
-    # Calculate the physics ratio so we have all 9 expected features
+    # Engineered features the model expects (not raw inputs -- must be
+    # computed here exactly as they were during training).
     physics_ratio = np.sqrt(payload.viscosity_cp / payload.spin_speed_rpm)
+    ratio_x_layers = physics_ratio * payload.number_of_layers
 
-    row = pd.DataFrame(
-        [[
-            payload.spin_speed_rpm,
-            payload.spin_time_s,
-            payload.viscosity_cp,
-            payload.surface_tension_mn_m,
-            payload.concentration_wt_pct,
-            payload.volume_deposited_ul,
-            payload.annealing_temp_c,
-            payload.annealing_time_min,
-            physics_ratio,
-        ]],
-        columns=features,
-    )
+    values = {
+        "Spin_Speed_rpm": payload.spin_speed_rpm,
+        "Spin_Time_s": payload.spin_time_s,
+        "Viscosity_cP": payload.viscosity_cp,
+        "Surface_Tension_mN_m": payload.surface_tension_mn_m,
+        "Concentration_wt_pct": payload.concentration_wt_pct,
+        "Volume_Deposited_uL": payload.volume_deposited_ul,
+        "Annealing_Temp_C": payload.annealing_temp_c,
+        "Annealing_Time_min": payload.annealing_time_min,
+        "Number_of_Layers": payload.number_of_layers,
+        "Physics_Ratio": physics_ratio,
+        "Ratio_x_Layers": ratio_x_layers,
+    }
+    # Reindex by the model's own saved feature list/order rather than a
+    # hardcoded column list, so this can't silently misalign later.
+    row = pd.DataFrame([values])[features]
 
     prediction = float(model.predict(row)[0])
     return PredictResponse(thickness_nm=round(prediction, 2))
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
 
-    # """
+
+
+# """
 # FastAPI server that loads the trained thickness model and serves it at
 # POST /predict. Run with:
 
@@ -124,6 +120,7 @@ def predict(payload: PredictRequest):
 # from pathlib import Path
 
 # import joblib
+# import numpy as np
 # import pandas as pd
 # from fastapi import FastAPI, HTTPException
 # from fastapi.middleware.cors import CORSMiddleware
@@ -141,7 +138,7 @@ def predict(payload: PredictRequest):
 # # once you host this somewhere other than localhost.
 # app.add_middleware(
 #     CORSMiddleware,
-#     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+#     allow_origins=["*"], 
 #     allow_methods=["*"],
 #     allow_headers=["*"],
 # )
@@ -195,6 +192,9 @@ def predict(payload: PredictRequest):
 #     bundle = get_bundle()
 #     model, features = bundle["model"], bundle["features"]
 
+#     # Calculate the physics ratio so we have all 9 expected features
+#     physics_ratio = np.sqrt(payload.viscosity_cp / payload.spin_speed_rpm)
+
 #     row = pd.DataFrame(
 #         [[
 #             payload.spin_speed_rpm,
@@ -205,9 +205,15 @@ def predict(payload: PredictRequest):
 #             payload.volume_deposited_ul,
 #             payload.annealing_temp_c,
 #             payload.annealing_time_min,
+#             physics_ratio,
 #         ]],
 #         columns=features,
 #     )
 
 #     prediction = float(model.predict(row)[0])
 #     return PredictResponse(thickness_nm=round(prediction, 2))
+    
+    
+    
+    
+
